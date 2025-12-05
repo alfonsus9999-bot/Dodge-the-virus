@@ -255,3 +255,4 @@ function startGame() {
 
 // INITIALIZE
 window.onload = startGame;
+
