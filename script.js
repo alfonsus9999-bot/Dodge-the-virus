@@ -4,63 +4,55 @@ const ctx = canvas.getContext('2d');
 const scoreDisplay = document.getElementById('scoreDisplay');
 const restartBtn = document.getElementById('restartBtn');
 
-// Game settings
-const canvasWidth = canvas.width;
-const canvasHeight = canvas.height;
-
-const playerWidth = 46;
-const playerHeight = 78; // Taller to fit whole body
-
-const playerSpeed = 5;
-
-// Player: draw Doby as a cartoon boy
-let player = {
-    x: canvasWidth / 2 - playerWidth / 2,
-    y: canvasHeight - playerHeight - 12,
-    width: playerWidth,
-    height: playerHeight,
-    radius: 28 // Face radius for circle collision
+// Doby settings (cartoon boy)
+const player = {
+    width: 46,
+    height: 78,
+    x: canvas.width / 2 - 23,
+    y: canvas.height - 90,
+    speed: 5
 };
 
-// Viruses (obstacles)
+// Store viruses
 let viruses = [];
 
 // Controls
-let keys = { left: false, right: false };
+let leftPressed = false;
+let rightPressed = false;
 
-// State
+// Score & game state
 let score = 0;
 let isGameOver = false;
 let obstacleTimer = 0;
 
-// Arrow key listeners
-document.addEventListener('keydown', e => {
-    if (e.key === "ArrowLeft") keys.left = true;
-    if (e.key === "ArrowRight") keys.right = true;
-});
-document.addEventListener('keyup', e => {
-    if (e.key === "ArrowLeft") keys.left = false;
-    if (e.key === "ArrowRight") keys.right = false;
+// Key listeners
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowLeft') leftPressed = true;
+    if (e.key === 'ArrowRight') rightPressed = true;
 });
 
-// Restart
+document.addEventListener('keyup', function(e) {
+    if (e.key === 'ArrowLeft') leftPressed = false;
+    if (e.key === 'ArrowRight') rightPressed = false;
+});
+
 restartBtn.addEventListener('click', startGame);
 
-// Draw Doby: cartoon boy
+// Draw Doby as a cartoon boy (simple)
 function drawDoby(p) {
     let cx = p.x + p.width / 2;
     let faceY = p.y + 38;
 
-    // Body (shirt)
+    // Shirt
     ctx.beginPath();
-    ctx.rect(p.x + 7, p.y + 56, p.width - 14, 22);
+    ctx.rect(p.x + 7, p.y + 59, p.width - 14, 16);
     ctx.fillStyle = "#4a82e4";
     ctx.fill();
     ctx.closePath();
 
     // Neck
     ctx.beginPath();
-    ctx.rect(cx - 8, faceY + 18, 16, 12);
+    ctx.rect(cx - 8, faceY + 18, 16, 10);
     ctx.fillStyle = "#f9dfc5";
     ctx.fill();
     ctx.closePath();
@@ -75,7 +67,7 @@ function drawDoby(p) {
     ctx.shadowBlur = 0;
     ctx.closePath();
 
-    // Hair: top arc
+    // Hair: top arc with bangs
     ctx.beginPath();
     ctx.arc(cx, faceY - 12, 26, Math.PI*1.03, Math.PI*1.97, false);
     ctx.fillStyle = "#442617";
@@ -105,26 +97,19 @@ function drawDoby(p) {
     ctx.ellipse(cx + 10, faceY + 3, 4, 7, 0, 0, Math.PI * 2);
     ctx.fillStyle = "#fff";
     ctx.fill();
-    ctx.lineWidth = 1;
     ctx.strokeStyle = "#333";
     ctx.stroke();
     ctx.closePath();
 
-    // Left pupil
+    // Pupils
     ctx.beginPath();
     ctx.arc(cx - 10, faceY + 6, 2, 0, Math.PI * 2);
-    ctx.fillStyle = "#222";
-    ctx.fill();
-    ctx.closePath();
-
-    // Right pupil
-    ctx.beginPath();
     ctx.arc(cx + 10, faceY + 6, 2, 0, Math.PI * 2);
     ctx.fillStyle = "#222";
     ctx.fill();
     ctx.closePath();
 
-    // Smile (simple arc)
+    // Smile
     ctx.beginPath();
     ctx.arc(cx, faceY + 14, 10, 0.13*Math.PI, 0.87*Math.PI, false);
     ctx.strokeStyle = "#784514";
@@ -132,7 +117,7 @@ function drawDoby(p) {
     ctx.stroke();
     ctx.closePath();
 
-    // Simple arms
+    // Arms
     ctx.beginPath();
     ctx.moveTo(p.x + 7, p.y + 66);
     ctx.lineTo(p.x - 6, p.y + 50);
@@ -142,11 +127,10 @@ function drawDoby(p) {
     ctx.lineWidth = 7;
     ctx.stroke();
 
-    // Reset lineWidth
     ctx.lineWidth = 1;
 }
 
-// Draw a virus (star circle)
+// Draw a virus (spiky green)
 function drawVirus(virus) {
     const spikes = 12;
     const innerRadius = virus.radius * 0.68;
@@ -154,7 +138,7 @@ function drawVirus(virus) {
     let angle = Math.PI / 2;
     ctx.save();
     ctx.translate(virus.x, virus.y);
-    ctx.rotate((virus.time/4) % (2*Math.PI)); // random rotation
+    ctx.rotate((virus.time/4) % (2*Math.PI));
     ctx.beginPath();
     for (let i = 0; i < spikes*2; i++) {
         let r = (i % 2 === 0) ? outerRadius : innerRadius;
@@ -178,16 +162,96 @@ function drawVirus(virus) {
     ctx.restore();
 }
 
-// Collision: simplest - use face center for Doby
+// Collision: Use the head center of Doby & radius, and virus as circles
 function circleCollision(a, b) {
-    // a: player "face", b: virus
-    const playerMid = { x: a.x + a.width / 2, y: a.y + 38, radius: a.radius };
-    const dx = playerMid.x - b.x;
-    const dy = playerMid.y - b.y;
-    const distance = Math.hypot(dx, dy);
-    return distance < (playerMid.radius + b.radius*0.78);
+    // a: player; b: virus
+    const ax = a.x + a.width / 2;
+    const ay = a.y + 38;
+    const ar = 28; // just the head
+
+    const dx = ax - b.x;
+    const dy = ay - b.y;
+    const dist = Math.hypot(dx, dy);
+    return dist < (ar + b.radius * 0.78);
 }
 
+// MAIN GAME LOOP
+function gameLoop() {
+    if (isGameOver) return;
+
+    // Move Doby
+    if (leftPressed) player.x -= player.speed;
+    if (rightPressed) player.x += player.speed;
+    // Boundaries
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+
+    // Viruses: Spawn every 40 frames (~0.66s at 60fps)
+    obstacleTimer++;
+    if (obstacleTimer % 40 === 0) {
+        let radius = 21 + Math.random() * 13;
+        let vx = Math.random() * (canvas.width - 2 * radius) + radius;
+        viruses.push({
+            x: vx,
+            y: -radius,
+            radius: radius,
+            speed: 2.5 + Math.random() * 1.5,
+            time: Math.random() * 2000
+        });
+    }
+
+    // Move viruses & remove offscreen
+    for (let v of viruses) {
+        v.y += v.speed;
+        v.time++;
+    }
+    viruses = viruses.filter(v => v.y < canvas.height + v.radius);
+
+    // Collision check
+    for (let v of viruses) {
+        if (circleCollision(player, v)) {
+            isGameOver = true;
+            restartBtn.style.display = "inline-block";
+        }
+    }
+
+    // Draw everything
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawDoby(player);
+    for (let v of viruses) {
+        drawVirus(v);
+    }
+
+    // Score
+    score++;
+    scoreDisplay.textContent = "Score: " + score;
+
+    if (!isGameOver) {
+        requestAnimationFrame(gameLoop);
+    } else {
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 36px Arial";
+        ctx.fillText("Game Over!", canvas.width / 2, canvas.height / 2);
+        ctx.font = "bold 24px Arial";
+        ctx.fillText("Score: " + score, canvas.width / 2, canvas.height / 2 + 40);
+        ctx.restore();
+    }
+}
+
+// RESET GAME STATE
 function startGame() {
-    player.x = canvasWidth / 2 - playerWidth /2;
-    player.y = canvasHeight - playerHeight - 12;
+    player.x = canvas.width / 2 - player.width/2;
+    player.y = canvas.height - player.height - 12;
+    viruses = [];
+    score = 0;
+    isGameOver = false;
+    obstacleTimer = 0;
+    restartBtn.style.display = "none";
+    scoreDisplay.textContent = "Score: 0";
+    requestAnimationFrame(gameLoop);
+}
+
+// INITIALIZE
+window.onload = startGame;
